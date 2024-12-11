@@ -23,7 +23,7 @@ spec:
         target:
           kind: Namespace
     path: content/files/manifests/network-configuration
-    repoURL: 'https://github.com/rh-osp-demo/showroom_osp-on-ocp.git'
+    repoURL: https://github.com/rh-osp-demo/showroom_osp-on-ocp.git
     targetRevision: HEAD  
   syncPolicy:
     automated:{}
