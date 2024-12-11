@@ -1,0 +1,10 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - application-openstack-ctl-plane.yaml
+  - https://raw.githubusercontent.com/turbra/showroom_osp-on-ocp/refs/heads/main/content/files/manifests/openstack-control-plane-deployment/osp-ng-ctlplane-deploy.yaml
+  - https://raw.githubusercontent.com/turbra/showroom_osp-on-ocp/refs/heads/main/content/files/manifests/openstack-control-plane-deployment/osp-ng-ctlplane-secret.yaml
+  - https://raw.githubusercontent.com/turbra/showroom_osp-on-ocp/refs/heads/main/content/files/manifests/openstack-control-plane-deployment/osp-ng-libvirt-secret.yaml
+  - https://raw.githubusercontent.com/turbra/showroom_osp-on-ocp/refs/heads/main/content/files/manifests/openstack-control-plane-deployment/secret-cinder-nfs-config.yaml
+  - https://raw.githubusercontent.com/turbra/showroom_osp-on-ocp/refs/heads/main/content/files/manifests/openstack-control-plane-deployment/secret-nova-migration-ssh-key.yaml

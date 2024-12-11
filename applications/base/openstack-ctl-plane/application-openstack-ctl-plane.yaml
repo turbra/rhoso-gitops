@@ -1,0 +1,29 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-wave: "-10"
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+  name: openstack-deployment-control-plane
+  namespace: openshift-gitops
+spec:
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: default
+  project: default
+  source:
+    kustomize:
+      patches:
+      - patch: |-
+          - op: add
+            path: /metadata/labels
+            value:
+              argocd.argoproj.io/managed-by: openshift-gitops
+        target:
+          kind: Namespace
+    path: applications/base/openstack-ctl-plane
+    repoURL: https://github.com/turbra/rhoso-gitops
+    targetRevision: HEAD  
+  syncPolicy:
+    automated: {}
