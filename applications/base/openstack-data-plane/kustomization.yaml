@@ -1,0 +1,7 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - application-openstack-data-plane.yaml
+  - https://raw.githubusercontent.com/turbra/showroom_osp-on-ocp/refs/heads/main/content/files/manifests/openstack-data-plane-deployment/osp-ng-dataplane-deployment.yaml
+  - https://raw.githubusercontent.com/turbra/showroom_osp-on-ocp/refs/heads/main/content/files/manifests/openstack-data-plane-deployment/osp-ng-dataplane-node-set-deploy.yaml
