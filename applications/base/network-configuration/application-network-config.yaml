@@ -22,8 +22,8 @@ spec:
               argocd.argoproj.io/managed-by: openshift-gitops
         target:
           kind: Namespace
-    path: content/files/manifests/network-configuration
-    repoURL: https://github.com/rh-osp-demo/showroom_osp-on-ocp.git
+    path: applications/base/network-configuration
+    repoURL: https://github.com/turbra/rhoso-gitops
     targetRevision: HEAD  
   syncPolicy:
     automated: {}
