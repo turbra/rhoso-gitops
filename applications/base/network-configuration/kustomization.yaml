@@ -3,3 +3,11 @@ kind: Kustomization
 
 resources:
   - application-network-config.yaml
+  - https://raw.githubusercontent.com/turbra/showroom_osp-on-ocp/openstack-namespace.yaml
+  - https://raw.githubusercontent.com/turbra/showroom_osp-on-ocp/ osp-ng-dataplane-netconfig.yaml
+  - https://raw.githubusercontent.com/turbra/showroom_osp-on-ocp/osp-ng-metal-lb-ip-address-pools.yaml
+  - https://raw.githubusercontent.com/turbra/showroom_osp-on-ocp/osp-ng-metal-lb-l2-advertisements.yaml
+  - https://raw.githubusercontent.com/turbra/showroom_osp-on-ocp/osp-ng-netattach.yaml
+  - https://raw.githubusercontent.com/turbra/showroom_osp-on-ocp/ osp-ng-nncp-w1.yaml
+  - https://raw.githubusercontent.com/turbra/showroom_osp-on-ocp/osp-ng-nncp-w2.yaml
+  - https://raw.githubusercontent.com/turbra/showroom_osp-on-ocp/osp-ng-nncp-w3.yaml
