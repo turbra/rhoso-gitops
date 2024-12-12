@@ -1,127 +1,312 @@
-# rhoso-gitops
+# Guide to Deploying RHOSO with OpenShift and OpenStack
 
-An implementation of Red Hat GitOps (GitOps, ArgoCD) for managing the
-deployment of Red Hat OpenStack Services on OpenShift (RHOSO).
+This guide provides step-by-step instructions to set up a RHOSO environment using OpenShift and OpenStack. Follow the steps carefully to ensure successful deployment.
 
-**WARNING**: _Contents of this repository are a work in progress and not yet
-ready for usage in a production environment. The organization or contents of
-this repository may change drastically at any time._
+---
 
-## Repository Layout
+## Prerequisites - [rhoso-gitops](https://github.com/turbra/rhoso-gitops)
 
-* `applications/`
-    * contains the base GitOps Operator (ArgoCD) Application manifests for
-      ArgoCD to manage push-install from the hub cluster to the managed cluster
-* `base/`
-    * contains base deployment knowledge not (yet) contained in the validated
-      architectures repository in support of OpenStack deployments with RHOSO
-* `orchestration/` (deprecated)
-    * contains the configuration to deploy for OpenShift GitOps (ArgoCD)
-      for cluster-scoped management on both the hub cluster and managed cluster
+### Bastion Host Requirements
+Install the necessary Python packages:
 
-## Deployment
-
-Manifests are managed with _kustomize_ (https://kustomize.io/) and can be
-applied directly with `oc apply -k <directory>`.
-
-Expected order of operations is:
-
-* (optional) Deploy Red Hat Advanced Cluster Manager (RHACM) and configure it
-  so deployment of OpenShift clusters is possible (the hub cluster).
-* Deploy ArgoCD to the hub cluster or unmanaged cluster.
-  * Use the `base/gitops/` directory to deploy Red Hat GitOps and the initial ArgoCD deployment.
-* Create the base Applications from `applications/` to the hub or unmanaged cluster.
-* Create your [environments](https://github.com/openstack-gitops/environments)
-  in a private repository for deployment.
-* Deploy `environments/`.
-
-### Bootstrap Red Hat GitOps
-
-You must first install Red Hat GitOps (GitOps) to provide the automation system
-for deploying RHOSO. Installation of GitOps can be done on a hub cluster or an
-unmanaged cluster. If installed on the hub cluster, you can use a GitOps
-Application to deploy GitOps on the managed cluster. If you are not using a hub
-cluster, then installation of GitOps on the unmanaged cluster must done first.
-
-_Prerequisites_
-
-* You have installed Ansible on the workstation.
-* You have installed the Ansible collection `kubernetes.core.k8s`.
-* You have installed Kustomize on the workstation.
-* You have logged into the OpenShift cluster as the kubeadmin user you want GitOps to be deployed to.
-
-_Procedure_
-
-Use the `deployment.playbook` script to automate the installation of Red Hat GitOps with Ansible and Kustomize.
-
-* Login to the OpenShift cluster as the kubeadmin user from the workstation.
-* Install the Red Hat GitOps Operator and deploy an ArgoCD instance with the `deployment.playbook` script:
-  ```
-  $ ./base/gitops/deployment.playbook
-  ```
-Alternatively, deploy Red Hat GitOps and ArgoCD with Kustomize directly in stages.
-
-* Login to the OpenShift cluster as the kubeadmin user from the workstation.
-* Install the Red Hat GitOps Operator:
-  ```
-  $ oc create --save-config -k base/gitops/subscribe
-  ```
-* Validate the Subscription has been completed. The subscription status should return:
-  ```
-  $ oc get subscription.operators.coreos.com/openshift-gitops-operator \
-      --namespace openshift-gitops-operator -ojsonpath='{.status.state}'
-  ```
-* When the value returned is `AtLastKnown`, then continue by deploying and ArgoCD instance.
-
-* Create the ArgoCD instance:
-  ```
-  $ oc create --save-config -k base/gitops/enable
-  ```
-
-### Set up Red Hat Advanced Cluster Management for GitOps
-
-When using Red Hat Advanced Cluster Management (RHACM) to support GitOps
-Applications for managed clusters, we will configure the hub cluster in
-preparation for using GitOps to support managed cluster configuration.
-
-If you are using GitOps on an unmanaged cluster without RHACM, then this will
-be unnecessary.
-
-_Prerequisites_
-
-* You have installed and setup RHACM (hub cluster) for your hardware
-  environment that will host the managed OpenShift deployment.
-* You are logged into the hub cluster as the kubeadmin user.
-* You have installed Red Hat GitOps.
-
-_Procedure_
-
-* Setup RHACM for RHOSO cluster deployments and placements with GitOps:
-  ```
-  oc apply -k base/advanced-cluster-managment/
-  ```
-* Add your cluster and place it in the `rhoso` ClusterSet
-
-## Accessing the user interface for OpenShift GitOps
-
-You can view progress and management of the Applications by looking up the host
-address with `oc`.
-
-_Procedure_
-
-* Look up the host address of the OpenShift GitOps user interface:
-  ```
-  $ oc get route/openshift-gitops-server -nopenshift-gitops -ojsonpath='{.spec.host}'
-  ```
-
-## Deploy Prerequisites
-
-Deploy the prerequisites for deployment of a RHOSO environment by creating the
-`openstack-prerequisites` GitOps Application.
-
-_Procedure_
-
-* Create the `openstack-prerequisites` GitOps Application:
+```bash
+pip install -r requirements.txt
 ```
-$ oc create --save-config -k applications/base/prerequisites
+
+---
+
+## Setting Up ArgoCD
+
+1. Install ArgoCD:
+
+```bash
+./base/gitops/deployment.playbook
 ```
+
+2. Grant the ServiceAccount for ArgoCD the ability to manage the cluster - [showroom_osp-on-ocp](https://github.com/turbra/showroom_osp-on-ocp)
+
+```bash
+oc adm policy add-cluster-role-to-user cluster-admin -z openshift-gitops-argocd-application-controller -n openshift-gitops
+```
+
+3. Extract the password from the admin user Secret:
+
+```bash
+argoPass=$(oc get secret/openshift-gitops-cluster -n openshift-gitops -o jsonpath='{.data.admin\.password}' | base64 -d)
+echo $argoPass
+```
+
+4. Get the Route for the OpenShift GitOps server:
+
+```bash
+argoURL=$(oc get route openshift-gitops-server -n openshift-gitops -o jsonpath='{.spec.host}{"\n"}')
+echo $argoURL
+```
+
+---
+
+## Deploying Prerequisites for RHOSO Environment - [rhoso-gitops](https://github.com/turbra/rhoso-gitops)
+
+1. Deploy the prerequisites for the RHOSO environment:
+
+```bash
+oc create --save-config -k applications/base/prerequisites
+```
+
+2. Deploy the prerequisites for the RHOSO control plane installation:
+
+```bash
+oc create --save-config -k applications/base/openstack-operator
+```
+
+3. Deploy the application manifest for networking configuration - [rhoso-gitops](https://github.com/turbra/rhoso-gitops) & [showroom_osp-on-ocp](https://github.com/turbra/showroom_osp-on-ocp)
+
+   - Created `application-network-config.yaml` and `kustomization.yaml` that point to `showroom_osp-on-ocp` repo
+
+```bash
+oc create --save-config -k applications/base/network-configuration
+```
+
+---
+
+## Setting Up RHOSO 18 Control Plane - [showroom_osp-on-ocp](https://github.com/turbra/showroom_osp-on-ocp)
+
+### NFS Configuration
+
+1. Create NFS shares for cinder and glance:
+
+```bash
+mkdir -p /nfs/cinder /nfs/glance && chmod 777 /nfs/cinder /nfs/glance
+```
+
+### Creating VM for Dataplane
+
+2. On the hypervisor host:
+
+```bash
+sudo -i
+cd /var/lib/libvirt/images
+cp rhel-9.4-x86_64-kvm.qcow2 rhel9-guest.qcow2
+qemu-img info rhel9-guest.qcow2
+qemu-img resize rhel9-guest.qcow2 +90G
+chown -R qemu:qemu rhel9-*.qcow2
+virt-customize -a rhel9-guest.qcow2 --run-command 'growpart /dev/sda 4'
+virt-customize -a rhel9-guest.qcow2 --run-command 'xfs_growfs /'
+virt-customize -a rhel9-guest.qcow2 --root-password password:redhat
+virt-customize -a rhel9-guest.qcow2 --run-command 'systemctl disable cloud-init'
+virt-customize -a /var/lib/libvirt/images/rhel9-guest.qcow2 --ssh-inject root:file:/root/.ssh/id_rsa.pub
+virt-customize -a /var/lib/libvirt/images/rhel9-guest.qcow2 --selinux-relabel
+qemu-img create -f qcow2 -F qcow2 -b /var/lib/libvirt/images/rhel9-guest.qcow2 /var/lib/libvirt/images/osp-compute-0.qcow2
+virt-install --virt-type kvm --ram 16384 --vcpus 4 --cpu=host-passthrough --os-variant rhel8.4 --disk path=/var/lib/libvirt/images/osp-compute-0.qcow2,device=disk,bus=virtio,format=qcow2 --network network:ocp4-provisioning --network network:ocp4-net --boot hd,network --noautoconsole --vnc --name osp-compute0 --noreboot
+virsh start osp-compute0
+```
+**One-liner command:**
+
+```bash
+cd /var/lib/libvirt/images && cp rhel-9.4-x86_64-kvm.qcow2 rhel9-guest.qcow2 && qemu-img info rhel9-guest.qcow2 && qemu-img resize rhel9-guest.qcow2 +90G && chown -R qemu:qemu rhel9-*.qcow2 && virt-customize -a rhel9-guest.qcow2 --run-command 'growpart /dev/sda 4' && virt-customize -a rhel9-guest.qcow2 --run-command 'xfs_growfs /' && virt-customize -a rhel9-guest.qcow2 --root-password password:redhat && virt-customize -a rhel9-guest.qcow2 --run-command 'systemctl disable cloud-init' && virt-customize -a /var/lib/libvirt/images/rhel9-guest.qcow2 --ssh-inject root:file:/root/.ssh/id_rsa.pub && virt-customize -a /var/lib/libvirt/images/rhel9-guest.qcow2 --selinux-relabel && qemu-img create -f qcow2 -F qcow2 -b /var/lib/libvirt/images/rhel9-guest.qcow2 /var/lib/libvirt/images/osp-compute-0.qcow2 && virt-install --virt-type kvm --ram 16384 --vcpus 4 --cpu=host-passthrough --os-variant rhel8.4 --disk path=/var/lib/libvirt/images/osp-compute-0.qcow2,device=disk,bus=virtio,format=qcow2 --network network:ocp4-provisioning --network network:ocp4-net --boot hd,network --noautoconsole --vnc --name osp-compute0 --noreboot && virsh start osp-compute0
+```
+
+### Configuring Ethernet Devices on Compute
+
+3. Configure the Ethernet devices:
+
+```bash
+ssh root@192.168.123.61
+nmcli con add con-name "static-eth0" ifname eth0 type ethernet ip4 172.22.0.100/24 ipv4.dns "172.22.0.89"
+nmcli con up "static-eth0"
+nmcli co delete 'Wired connection 1'
+nmcli con add con-name "static-eth1" ifname eth1 type ethernet ip4 192.168.123.61/24 ipv4.dns "192.168.123.100" ipv4.gateway "192.168.123.1"
+nmcli con up "static-eth1"
+nmcli co delete 'Wired connection 2'
+logout
+```
+
+**One-liner command:**
+
+```bash
+nmcli con add con-name "static-eth0" ifname eth0 type ethernet ip4 172.22.0.100/24 ipv4.dns "172.22.0.89" && nmcli con up "static-eth0" && nmcli --wait 10 dev status | grep -q "static-eth0.*connected" && nmcli co delete 'Wired connection 1' && nmcli con add con-name "static-eth1" ifname eth1 type ethernet ip4 192.168.123.61/24 ipv4.dns "192.168.123.100" ipv4.gateway "192.168.123.1" && nmcli con up "static-eth1" && nmcli --wait 10 dev status | grep -q "static-eth1.*connected" && nmcli co delete 'Wired connection 2' && logout
+```
+
+4. Set up SSH keys:
+
+```bash
+sudo -i
+scp /root/.ssh/id_rsa root@192.168.123.100:/root/.ssh/id_rsa_compute
+scp /root/.ssh/id_rsa.pub root@192.168.123.100:/root/.ssh/id_rsa_compute.pub
+```
+
+5. Connect to the bastion server:
+
+```bash
+ssh root@192.168.123.100
+```
+
+6. Create a Secret:
+
+```bash
+oc create secret generic dataplane-ansible-ssh-private-key-secret --save-config --dry-run=client --from-file=authorized_keys=/root/.ssh/id_rsa_compute.pub --from-file=ssh-privatekey=/root/.ssh/id_rsa_compute --from-file=ssh-publickey=/root/.ssh/id_rsa_compute.pub -n openstack -o yaml | oc apply -f-
+```
+
+---
+
+## Deploying RHOSO Using OpenShift GitOps - [rhoso-gitops](https://github.com/turbra/rhoso-gitops) & [showroom_osp-on-ocp](https://github.com/turbra/showroom_osp-on-ocp)
+
+- Created `application-openstack-ctl-plane.yaml` and `kustomization.yaml` that point to `showroom_osp-on-ocp` repo.
+- Created `application-openstack-data-plane.yaml` and `kustomization.yaml` that point to `showroom_osp-on-ocp` repo.
+
+1. Install the control plane:
+
+```bash
+oc create --save-config -k applications/base/openstack-ctl-plane
+```
+
+2. Create secret for the subcription manager credentials
+```bash
+echo -n "your_username" | base64
+echo -n "your_password" | base64
+```
+
+```bash
+oc apply -f - <<EOF
+apiVersion: v1
+kind: Secret
+metadata:
+  name: subscription-manager
+  namespace: openstack
+data:
+  username: <base64 encoded subscription-manager username>
+  password: <base64 encoded subscription-manager password>
+EOF
+```
+3. Install the data plane:
+
+```bash
+oc create --save-config -k applications/base/openstack-data-plane
+```
+
+---
+---
+
+## Accessing OpenStack
+
+1. From the bastion server, access the Control Plane:
+
+```bash
+oc rsh -n openstack openstackclient
+```
+
+2. Verify OpenStack services:
+
+```bash
+cd /home/cloud-admin
+openstack compute service list
+```
+
+3. Verify OpenStack networks:
+
+```bash
+openstack network agent list
+```
+
+4. Map the Compute nodes to the Compute cell that they are connected to:
+```bash
+oc rsh nova-cell0-conductor-0 nova-manage cell_v2 discover_hosts --verbose
+```
+
+5. Access to the openstackclient pod
+```bash
+oc rsh -n openstack openstackclient
+```
+
+6. Create image and flavors
+```bash
+export GATEWAY=192.168.123.1
+export PUBLIC_NETWORK_CIDR=192.168.123.1/24
+export PRIVATE_NETWORK_CIDR=192.168.100.0/24
+export PUBLIC_NET_START=192.168.123.91
+export PUBLIC_NET_END=192.168.123.99
+export DNS_SERVER=8.8.8.8
+openstack flavor create --ram 512 --disk 1 --vcpu 1 --public tiny
+curl -O -L https://github.com/cirros-dev/cirros/releases/download/0.6.2/cirros-0.6.2-x86_64-disk.img
+openstack image create cirros --container-format bare --disk-format qcow2 --public --file cirros-0.6.2-x86_64-disk.img
+```
+**One-liner command:**
+
+```bash
+export GATEWAY=192.168.123.1 && export PUBLIC_NETWORK_CIDR=192.168.123.1/24 && export PRIVATE_NETWORK_CIDR=192.168.100.0/24 && export PUBLIC_NET_START=192.168.123.91 && export PUBLIC_NET_END=192.168.123.99 && export DNS_SERVER=8.8.8.8 && openstack flavor create --ram 512 --disk 1 --vcpu 1 --public tiny && curl -O -L https://github.com/cirros-dev/cirros/releases/download/0.6.2/cirros-0.6.2-x86_64-disk.img && openstack image create cirros --container-format bare --disk-format qcow2 --public --file cirros-0.6.2-x86_64-disk.img
+```
+
+7. Generate a keypair:
+```bash
+ssh-keygen -m PEM -t rsa -b 2048 -f ~/.ssh/id_rsa_pem
+```
+
+8. Create Network and Security for the VM
+```bash
+openstack keypair create --public-key ~/.ssh/id_rsa_pem.pub default
+openstack security group create basic
+openstack security group rule create basic --protocol tcp --dst-port 22:22 --remote-ip 0.0.0.0/0
+openstack security group rule create --protocol icmp basic
+openstack security group rule create --protocol udp --dst-port 53:53 basic
+openstack network create --external --provider-physical-network datacentre --provider-network-type flat public
+openstack network create --internal private
+openstack subnet create public-net \
+--subnet-range $PUBLIC_NETWORK_CIDR \
+--no-dhcp \
+--gateway $GATEWAY \
+--allocation-pool start=$PUBLIC_NET_START,end=$PUBLIC_NET_END \
+--network public
+openstack subnet create private-net \
+--subnet-range $PRIVATE_NETWORK_CIDR \
+--network private
+openstack router create vrouter
+openstack router set vrouter --external-gateway public
+openstack router add subnet vrouter private-net
+```
+**One-liner command:**
+
+```bash
+openstack keypair create --public-key ~/.ssh/id_rsa_pem.pub default && openstack security group create basic && openstack security group rule create basic --protocol tcp --dst-port 22:22 --remote-ip 0.0.0.0/0 && openstack security group rule create --protocol icmp basic && openstack security group rule create --protocol udp --dst-port 53:53 basic && openstack network create --external --provider-physical-network datacentre --provider-network-type flat public && openstack network create --internal private && openstack subnet create public-net --subnet-range $PUBLIC_NETWORK_CIDR --no-dhcp --gateway $GATEWAY --allocation-pool start=$PUBLIC_NET_START,end=$PUBLIC_NET_END --network public && openstack subnet create private-net --subnet-range $PRIVATE_NETWORK_CIDR --network private && openstack router create vrouter && openstack router set vrouter --external-gateway public && openstack router add subnet vrouter private-net
+```
+
+9. Create the Server and a Floating IP
+```bash
+openstack server create \
+    --flavor tiny --key-name default --network private --security-group basic \
+    --image cirros test-server
+openstack floating ip create public
+```
+
+10. Add the floating IP above to the new VM in the next step.
+```bash
+openstack server add floating ip test-server $(openstack floating ip list -c "Floating IP Address" -f value)
+exit
+```
+
+11. From the bastion access to the VM.
+```bash
+ssh cirros@<FLOATING_IP> (password is gocubsgo)
+
+exit
+```
+
+## Optional: Enable Horizon
+1. From the Bastion:
+```bash
+oc patch openstackcontrolplanes/openstack-galera-network-isolation -p='[{"op": "replace", "path": "/spec/horizon/enabled", "value": true}]' --type json
+oc patch openstackcontrolplane/openstack-galera-network-isolation -p '{"spec": {"horizon": {"template": {"customServiceConfig": "USE_X_FORWARDED_HOST = False" }}}}' --type=merge
+```
+2. Check that the horizon pods are running after enabling it:
+```bash
+oc get pods -n openstack
+```
+
+3. Get the Route:
+```bash
+ROUTE=$(oc get routes horizon  -o go-template='https://{{range .status.ingress}}{{.host}}{{end}}')
+echo $ROUTE
+```
+Click the url and log in as username admin password openstack
+
+## Scale out your deployment with a Metal3/Baremetal Cluster Operator provisioned node
+TBD
