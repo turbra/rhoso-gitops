@@ -1,6 +1,6 @@
 # Guide to Deploying RHOSO with OpenShift and OpenStack
 
-This guide provides step-by-step instructions to set up a RHOSO environment using OpenShift and OpenStack. Follow the steps carefully to ensure successful deployment.
+This guide provides step-by-step instructions to set up a RHOSO environment using GitOps and following the RHOSO Hands on Lab. Follow the steps carefully to ensure successful deployment.
 
 ---
 
