@@ -145,6 +145,12 @@ virsh start osp-compute0
 cd /var/lib/libvirt/images && cp rhel-9.4-x86_64-kvm.qcow2 rhel9-guest.qcow2 && qemu-img info rhel9-guest.qcow2 && qemu-img resize rhel9-guest.qcow2 +90G && chown -R qemu:qemu rhel9-*.qcow2 && virt-customize -a rhel9-guest.qcow2 --run-command 'growpart /dev/sda 4' && virt-customize -a rhel9-guest.qcow2 --run-command 'xfs_growfs /' && virt-customize -a rhel9-guest.qcow2 --root-password password:redhat && virt-customize -a rhel9-guest.qcow2 --run-command 'systemctl disable cloud-init' && virt-customize -a /var/lib/libvirt/images/rhel9-guest.qcow2 --ssh-inject root:file:/root/.ssh/id_rsa.pub && virt-customize -a /var/lib/libvirt/images/rhel9-guest.qcow2 --selinux-relabel && qemu-img create -f qcow2 -F qcow2 -b /var/lib/libvirt/images/rhel9-guest.qcow2 /var/lib/libvirt/images/osp-compute-0.qcow2 && virt-install --virt-type kvm --ram 16384 --vcpus 4 --cpu=host-passthrough --os-variant rhel8.4 --disk path=/var/lib/libvirt/images/osp-compute-0.qcow2,device=disk,bus=virtio,format=qcow2 --network network:ocp4-provisioning --network network:ocp4-net --boot hd,network --noautoconsole --vnc --name osp-compute0 --noreboot && virsh start osp-compute0
 ```
 
+Verify IP from 192.168.123.0/24
+```bash
+virsh domifaddr osp-compute0 --source agent
+```
+Use the IP assigned to eth1 above in the next step.
+
 ### Configuring Ethernet Devices on Compute
 
 3. Configure the Ethernet devices:
@@ -161,6 +167,7 @@ logout
 ```
 
 **One-liner command:**
+Waits up to 10 seconds and checks if the static-eth0 connection is in the connected state before moving onto static-eth1
 
 ```bash
 nmcli con add con-name "static-eth0" ifname eth0 type ethernet ip4 172.22.0.100/24 ipv4.dns "172.22.0.89" && nmcli con up "static-eth0" && nmcli --wait 10 dev status | grep -q "static-eth0.*connected" && nmcli co delete 'Wired connection 1' && nmcli con add con-name "static-eth1" ifname eth1 type ethernet ip4 192.168.123.61/24 ipv4.dns "192.168.123.100" ipv4.gateway "192.168.123.1" && nmcli con up "static-eth1" && nmcli --wait 10 dev status | grep -q "static-eth1.*connected" && nmcli co delete 'Wired connection 2' && logout
