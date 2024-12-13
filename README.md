@@ -13,6 +13,11 @@ Install the necessary Python packages:
 pip install -r requirements.txt
 ```
 
+Install the necessary ansible-galaxy collection(s):
+```bash
+ansible-galaxy install -r requirements.yml
+```
+
 ---
 
 ## Setting Up ArgoCD
