@@ -211,6 +211,18 @@ oc create secret generic dataplane-ansible-ssh-private-key-secret --save-config 
 ```bash
 oc create --save-config -k applications/base/openstack-ctl-plane
 ```
+The OpenStackControlPlane resources are created when the status is "Setup complete". Verify the status typing the following command:
+```bash
+oc get openstackcontrolplane -n openstack
+
+NAME                                 STATUS   MESSAGE
+openstack-galera-network-isolation   True     Setup complete
+```
+Confirm that the control plane is deployed by reviewing the pods in the openstack namespace
+```bash
+oc get pods -n openstack
+```
+
 
 2. Create secret for the subcription manager credentials
 ```bash
