@@ -110,6 +110,7 @@ oc describe netconfig openstacknetconfig -n openstack
 ## Setting Up RHOSO 18 Control Plane - [showroom_osp-on-ocp](https://github.com/turbra/showroom_osp-on-ocp)
 
 ### NFS Configuration
+In the bastion host:
 
 1. Create NFS shares for cinder and glance:
 
